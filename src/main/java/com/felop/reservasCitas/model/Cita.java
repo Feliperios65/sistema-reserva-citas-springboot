@@ -25,45 +25,58 @@ public class Cita {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    //nombre del cliente que reserva
     @Column(nullable = false, length = 100)
     private String nombreCliente;
 
+    //email de contacto del cliente
     @Column(nullable = false, length = 20)
     private String email;
 
+    //telefono de contacto del cliente
     @Column(nullable = false)
     private String telefono;
 
+    //Fecha de la cita
     @Column(nullable = false)
     private LocalDate fecha;
 
+    //hora de inicio de la cita
     @Column(nullable = false)
     private LocalTime horaInicio;
 
+    //hora de fin de la cita
     @Column(nullable = false)
     private LocalTime horaFin;
 
+    //tipo de servicio solicitado
     @Column(nullable = false, length = 100)
     private String servicio;
 
+    //estado actual de la cita
     @Enumerated(EnumType.STRING)//almacena el nombre del enum en BD vs ORDINAL que almacenaría el índice numérico
     @Column(nullable = false, length = 20)
     private EstadoCita estado;
 
+    //precio del servicio
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal precio;
+    private BigDecimal precio;//BigDecimal se usa para evitar errores de precisión en cálculos monetarios
 
+    //notas sobre la cita (opcional)
     @Column(length = 500)
     private String notas;
 
+    //Codigo unico de confimacion de la cita, formato: "APT-XXXX"
     @Column(unique = true, nullable = false, length = 10)
     private String codigoConfirmacion;
 
-    @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    //Timestamp de creacion del registro
+    @CreationTimestamp//@CreationTimestamp genera automáticamente la fecha/hora al insertar.
+    @Column(nullable = false, updatable = false)//updatable=false previene modificaciones accidentales en actualizaciones.
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
+    //Timestamp de ultima actualizacion del registro
+    @UpdateTimestamp//@UpdateTimestamp actualiza automáticamente en cada modificación.
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 }

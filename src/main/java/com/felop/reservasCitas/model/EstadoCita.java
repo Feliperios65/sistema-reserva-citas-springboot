@@ -10,6 +10,6 @@ public enum EstadoCita {
     //La cita fue cancelada
     CANCELADA,
 
-    //El servicio fue prestado exitosamente
+    //El servicio fue prestado exitosamente, no se permiten cambios posteriores
     COMPLETADA
 }
