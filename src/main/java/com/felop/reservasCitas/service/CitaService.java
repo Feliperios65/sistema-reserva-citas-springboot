@@ -1,4 +1,4 @@
-package com.felop.reservasCitas.service.impl;
+package com.felop.reservasCitas.service;
 //Interfaz de servicio para la gestion de citas
 
 import com.felop.reservasCitas.dto.CitaConfirmacionDTO;
@@ -21,7 +21,7 @@ public interface CitaService {
     List<CitaResponseDTO> getAllCitas();
 
     //Obtiene una cita por su ID
-    CitaRequestDTO getCitaById(Long id);
+    CitaResponseDTO getCitaById(Long id);
 
     //Actualiza los datos de una cita existente
     CitaResponseDTO updateCita(Long id, CitaRequestDTO dto);
