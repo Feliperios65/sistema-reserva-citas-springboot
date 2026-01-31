@@ -1,0 +1,189 @@
+# ============================================================
+# VERSIÓN DE DOCKER COMPOSE
+# ============================================================
+# Versión 3.8 de la especificación de Docker Compose
+# Soporta todas las features modernas (healthchecks, depends_on con conditions, etc.)
+#version: '3.8'
+
+services:
+  # ============================================================
+  # SERVICIO: MYSQL DATABASE
+  # ============================================================
+  # Base de datos MySQL 8.0 para almacenar datos de citas médicas
+  mysql:
+    # Nombre personalizado del contenedor (en lugar de generado automáticamente)
+    # Útil para referenciarlo en comandos: docker logs mysql-citas-db
+    container_name: mysql-citas-db
+
+    # Imagen oficial de MySQL versión 8.0 desde Docker Hub
+    # No se construye localmente, se descarga directamente
+    image: mysql:8.0
+
+    # Mapeo de puertos: [HOST:CONTENEDOR]
+    # Puerto 3306 del host → Puerto 3306 del contenedor
+    # Permite conectarse desde tu máquina local: localhost:3306
+    # También permite que otros contenedores se conecten usando: mysql:3306
+    ports:
+      - "3306:3306"
+
+    # ===== VARIABLES DE ENTORNO =====
+    # Configuran MySQL al crear el contenedor por primera vez
+    environment:
+      # Contraseña del usuario root de MySQL
+      # ⚠️ IMPORTANTE: Cambiar en producción por una contraseña segura
+      # ⚠️ NO commitear contraseñas reales a Git
+      # Mejor práctica: usar archivo .env o secrets
+      MYSQL_ROOT_PASSWORD: 123456
+
+        # Nombre de la base de datos que se crea automáticamente al iniciar
+      # Si la BD ya existe (en el volumen), no la recrea
+      # MySQL ejecuta: CREATE DATABASE IF NOT EXISTS citas_db;
+      MYSQL_DATABASE: citas_db
+
+    # ===== HEALTH CHECK =====
+    # Verifica periódicamente si MySQL está listo para aceptar conexiones
+    # Crítico para que otros servicios esperen antes de intentar conectarse
+    healthcheck:
+      # Comando que se ejecuta para verificar salud
+      # mysqladmin ping: Herramienta nativa de MySQL para verificar conectividad
+      # -h localhost: Conecta al servidor local
+      # Retorna 0 (éxito) si MySQL responde, 1 (error) si no responde
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+
+      interval: 10s # Verifica cada 10 segundos
+
+      # Tiempo máximo de espera para cada verificación
+      # Si mysqladmin no responde en 10s, se considera fallida
+      timeout: 5s
+
+      # Número de intentos fallidos antes de marcar el contenedor como unhealthy
+      retries: 5
+
+      start_period: 30s # 30 segundos de gracia al iniciar
+
+        # ⚠️ FALTA: volumes - Sin volumen, los datos se pierden al eliminar el contenedor
+        # Recomendado:
+        # volumes:
+        #   - mysql-data:/var/lib/mysql
+
+        # ⚠️ FALTA: networks - No especifica red, usa la red default
+        # Recomendado definir una red personalizada
+
+        # ⚠️ FALTA: restart - Política de reinicio
+        # Recomendado: restart: unless-stopped
+
+
+  # ============================================================
+  # SERVICIO: APLICACIÓN SPRING BOOT
+  # ============================================================
+  # API REST para gestión de reserva de citas
+  reserva_citas:
+    # Nombre del contenedor de la aplicación
+    container_name: app_reserva_citas
+
+    # ===== BUILD CONFIGURATION =====
+    # Construye la imagen Docker desde el Dockerfile en la raíz del proyecto
+      # ⚠️ MEJORA: Especificar más detalles del build
+      # build:
+      #   context: ./
+      #   dockerfile: Dockerfile
+    #   args:
+    #     - JAR_FILE=target/*.jar
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # Mapeo de puertos: [HOST:CONTENEDOR]
+    # Puerto 8080 del host → Puerto 8080 del contenedor Spring Boot
+    # Accesible desde: http://localhost:8080
+    ports:
+      - "8080:8080"
+
+    # ===== VARIABLES DE ENTORNO =====
+    # Sobrescriben las propiedades de application.yml/application.properties
+    environment:
+      # URL de conexión JDBC a MySQL
+      # jdbc:mysql:// - Protocolo JDBC para MySQL
+      # mysql - Nombre del servicio/contenedor (NO "localhost")
+      # :3306 - Puerto de MySQL
+      # /citas_db - Base de datos a usar
+      #
+      # PARÁMETROS DE LA URL:
+      # createDatabaseIfNotExist=true - Crea la BD si no existe
+      # serverTimezone=UTC - Establece zona horaria UTC
+      #   (evita warnings de timezone en MySQL 8.0)
+      DB_URL: jdbc:mysql://mysql:3306/citas_db?createDatabaseIfNotExist=true&serverTimezone=UTC
+
+      # Usuario de MySQL para la aplicación
+      # ⚠️ SEGURIDAD: Usar 'root' en producción es mala práctica
+      # Mejor: crear usuario específico con permisos limitados
+      DB_USER_NAME: root
+
+      # Contraseña del usuario MySQL
+      # ⚠️ SEGURIDAD: Contraseña en texto plano es riesgoso
+      # Mejor: usar Docker secrets o archivo .env
+      DB_PASSWORD: 123456
+
+    # ===== DEPENDENCIAS =====
+    # Define el orden de inicio de contenedores
+    depends_on:
+      mysql:
+        # CRÍTICO: Espera a que MySQL esté HEALTHY antes de iniciar
+        # condition: service_healthy - No arranca hasta que healthcheck pase
+        #
+        # Sin esto, la app arrancaría inmediatamente y fallaría porque
+        # MySQL aún estaría inicializando (Connection refused)
+        #
+        # FLUJO:
+        # 1. MySQL arranca
+        # 2. Healthcheck verifica cada 30s (interval por defecto)
+        # 3. Después de ~10 verificaciones exitosas → HEALTHY
+        # 4. Recién ahí arranca reserva_citas
+        condition: service_healthy
+        # ===== CONSEJOS Y MEJORAS =====
+          # ⚠️ FALTA: healthcheck - La app no tiene verificación de salud
+          # Recomendado:
+          # healthcheck:
+          #   test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health"]
+          #   interval: 30s
+          #   timeout: 10s
+          #   retries: 5
+          #   start_period: 60s
+        # Healthcheck para la aplicaciÃ³n Spring Boot
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s      # Spring Boot tarda en arrancar
+
+          # ⚠️ FALTA: deploy.resources - Sin límites de memoria/CPU
+          # La app podría consumir todos los recursos del host
+          # Recomendado:
+          # deploy:
+          #   resources:
+          #     limits:
+          #       memory: 512M
+          #       cpus: '0.5'
+
+          # ⚠️ FALTA: restart - Política de reinicio
+          # Recomendado: restart: unless-stopped
+
+          # ⚠️ FALTA: networks - No especifica red
+
+          # ⚠️ FALTA: JAVA_OPTS - No configura opciones de JVM
+          # Recomendado agregar:
+        # environment:
+        #   - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+
+        # ⚠️ FALTA: Definición de volúmenes
+        # Sin esto, los datos de MySQL se pierden al hacer docker-compose down
+        # volumes:
+        #   mysql-data:
+        #     driver: local
+
+        # ⚠️ FALTA: Definición de redes
+        # Aunque funciona con la red default, es mejor práctica definir una red personalizada
+        # networks:
+        #   citas-network:
+        #     driver: bridge
