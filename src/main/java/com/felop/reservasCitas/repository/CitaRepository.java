@@ -21,7 +21,7 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     Optional<Cita> findByCodigoConfirmacion(String codigo);
 
     //verifica si existe una cita con el codigo de confirmacion dado
-    boolean existByCodigoConfirmacion(String codigo);
+    boolean existsByCodigoConfirmacion(String codigo);
 
     //obtiene todas la citas de un cliente por su email
     List<Cita> findByEmailOrderByFechaDesc(String email);
@@ -45,7 +45,7 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     );
 
     //obtiene todas las citas activas (Pendientes o Completadas) de una fecha en especifico
-    @Query("SELECT a FROM Cita a WHERE a.fecha = :fecha" +
+    @Query("SELECT a FROM Cita a WHERE a.fecha = :fecha " +
             "AND a.estado IN ('PENDIENTE','CONFIRMADA') " +
             "ORDER BY a.horaInicio ASC")
     List<Cita> findActiveAppointmentsByDate(

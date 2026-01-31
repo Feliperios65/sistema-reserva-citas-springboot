@@ -329,7 +329,7 @@ public class CitaServiceImpl implements CitaService {
             //tomar 4 caracteres
             String sufix = uuid.substring(0, 4).toUpperCase();
             code = "APT-" + sufix;
-        } while (repository.existByCodigoConfirmacion(code)); //Repetir si ya existe
+        } while (repository.existsByCodigoConfirmacion(code)); //Repetir si ya existe
         return code;
     }
 
